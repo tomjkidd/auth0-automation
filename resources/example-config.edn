@@ -4,8 +4,8 @@
 [
  ;; A client
  {:type :client
-  :id :client-id
-  :key :name
+  :id-key :client-id
+  :search-key :name
   :payload
   {;:client-id                           "<client-id, unique and created by auth0>",
    ;:client-secret                      "<client-secret, can be overridden, but created by auth0>",
@@ -58,7 +58,7 @@
 
  ;; A resource-server (called APIs in the dashboard)
  {:type :resource-server
-  :key :name
+  :search-key :name
   :payload
   {;:id                                              "<id, unique and created by auth0>",
    :name                                            "<resource-server-name>",
@@ -73,7 +73,7 @@
 
  ;; A connection
  {:type :connection
-  :key :name
+  :search-key :name
   :payload
   {;:id                   "<id, unique and created by auth0>",
    :options
@@ -91,9 +91,9 @@
    :realms               ["Username-Password-Authentication"]}}
 
  ;; A user
- {:type :user
-  :id   :user-id
-  :key  :email
+ {:type       :user
+  :id-key     :user-id
+  :search-key :email
   :payload
   {;;:user-id        "auth0|<user-id>, unique and created by auth0",
    ;;:logins-count   9,

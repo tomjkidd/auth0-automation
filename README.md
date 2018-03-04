@@ -28,32 +28,45 @@ All references to the Auth0 API in this repo should be assumed to mean the Maint
 
 ## Usage
 
+This program relies on a few environment variables in order to work, so you must set them to run correctly
+
+| Name | Type |  Description |
+|:-----|:----:|:-------------|
+| `AUTH0_AUTOMATION_DOMAIN` | String | Usually in the form of `<tenant>.auth0.com` |
+| `AUTH0_AUTOMATION_CLIENT_ID` | String | The non-interactive `client-id`, with all scopes for entities you wish to change |
+| `AUTH0_AUTOMATION_CLIENT_SECRET` | String | The secret that corresponds to `AUTH0_AUTOMATION_CLIENT_ID` |
+| `AUTH0_AUTOMATION_EDN_CONFIG_FILEPATH` | String | The location to look for the `edn-config` to use, more about that below |
+
 An `edn` config file contains a vector of hash-maps that represent the state of the Auth0 enviornment you are
 trying to setup.
 
-Each hash-maps has `:type`, `:id`, `:key`, and `:payload` keys.
+Each hash-maps has `:type`, `:id-key`, `:search-key`, and `:payload` keys.
 * The `:type` key is a keyword, one of `#{:client :resource-server :connection :user}`.
 ```
 NOTE: For most of the Auth0 API, there is a consistent mapping from entity type to url.
-While not all types have yet been explicitly supported, it should be faily straight-forward
-to add more types, or rely on a rule to open them up. This repo is still beta, so take it with
+While not all types have yet been explicitly supported, the `build-url` multi-method
+provides a fairly straight-forward to add more type. This repo is still beta, so take it with
 a grain of salt.
 ```
-* The `:id` key is a keyword that maps to the Auth0 generated id of an entity. This key is used to collect
-information to report to the user after the program runs to allow the user to verify updated entities.
-* The `:key` key is a keyword that represents the edn based identifier used to detect existing entities. It is used
-by the program to determine if an entity already exists.
+
+* The `:id-key` key is a keyword that maps to the Auth0 generated id of an entity. This key is used to collect
+information to report to the user after the program runs to allow the user to verify updated entities. (These
+ids are typically used in other programs to connect to specific entities).
+
+* The `:search-key` key is a keyword that represents the edn based identifier used to detect existing entities.
+It is usedby the program to determine if an entity already exists.
+
 * The `:payload` key is an edn data structure that will be transformed to a json payload to use as the body for
 either a POST/PUT to create/update an entity.
 ```
 NOTE: kebab-case keywords will be converted to snake_case strings
 ```
 
-This program will first consume the `edn`, get an Auth0 access-token, and sequentially process the edn using
-calls to the Auth0 API to determine if entities exists, or if it needs to create them. The program will create
-another data-structure based on this information to communicate the steps necessary to get from where the current
-state to the desired state. This data structure is then used to actually perform the changes. The program captures
-the ids of the entities that it created in order to allow the user to verify the work in the dashboard.
+This program will first consume the `edn-config`, get an Auth0 access-token, and sequentially process the
+edn-config using calls to the Auth0 API to determine if entities exists, or if it needs to create them. The
+program will create an intermediate data-structure based on this information to communicate the steps necessary
+to get from where the current state to the desired state. This data structure is then consumed to actually perform
+the changes. The program captures the ids of the entities that it created in order to allow the user to verify the work in the dashboard.
 
 TODO: Document environment variables
 

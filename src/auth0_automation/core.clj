@@ -1,5 +1,7 @@
 (ns auth0-automation.core
   (:require [auth0-automation.auth0 :as auth0]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [io.pedestal.interceptor.chain :as interceptor-chain])
@@ -44,24 +46,22 @@
   "A convenient representation of the environment variables that are needed"
   {:auth0 {:domain        (env :auth0-automation-domain)
            :client-id     (env :auth0-automation-client-id)
-           :client-secret (env :auth0-automation-client-secret)}})
+           :client-secret (env :auth0-automation-client-secret)}
+   :edn-config {:filepath (env :auth0-automation-edn-config-filepath)}})
 
-(def init-context
-  "Initialize the context for the program. This includes option configuration
-  to control how errors are reported."
+(def provide-env-config
+  "Adds `env-config` to the context."
   {:enter (fn [ctx]
             (assoc ctx :env-config env-config))})
 
-(def read-configuration
-  "Reads the configuration file that describes the desired Auth0 environment"
-  {:enter (fn [ctx]
-            (assoc ctx ::auth0-config {:tbd "TBD"}))})
-
-(def determine-api-calls
-  "Create a data structure that represents the actions that are needed to create
-  the desired Auth0 environment based on the current one."
-  {:enter (fn [ctx]
-            (assoc ctx ::api-calls []))})
+(def read-edn-configuration
+  "Reads the `edn-configuration` file that describes the desired Auth0 environment"
+  {:enter (fn [{:keys [env-config] :as ctx}]
+            (let [filepath (get-in env-config [:edn-config :filepath])]
+              (if (and (some? filepath) (.exists (io/as-file filepath)))
+                (assoc ctx :edn-config (edn/read-string(slurp filepath)))
+                (assoc ctx ::errors [{:type :edn-config-does-not-exist
+                                      :msg  "Was unable to locate an edn-config file. Make sure the filepath points to an actual file."}]))))})
 
 (def get-auth0-token
   "Attempts to get an Auth0 Management API token"
@@ -73,8 +73,14 @@
                 (assoc ctx ::errors [{:type :unable-to-get-auth0-token
                                       :msg "Unable to get Auth0 token. Make sure that the domain, client-id, and client-secret are correct and that the Auth0 service is working."}]))))})
 
-(def transact-api-calls!
-  "Performs the actions identified by `::api-calls` against the Auth0 environment"
+(def determine-api-actions
+  "Create a data structure that represents the actions that are needed to create
+  the desired Auth0 environment based on the current one."
+  {:enter (fn [ctx]
+            (assoc ctx ::api-actions []))})
+
+(def transact-api-actions!
+  "Performs the actions identified by `::api-actions` against the Auth0 environment"
   {:enter (fn [{:keys [dryrun?] :as ctx}]
             (if dryrun?
               ctx
@@ -96,11 +102,11 @@
   "The pipeline of interceptors used to perform the Auth0 environment update"
   [exception-interceptor
    errors-interceptor
-   init-context
-   read-configuration
-   determine-api-calls
+   provide-env-config
+   read-edn-configuration
    get-auth0-token
-   transact-api-calls!
+   determine-api-actions
+   transact-api-actions!
    report-results])
 
 (defn run
