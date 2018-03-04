@@ -1,0 +1,116 @@
+;; NOTE: Entities are processed in order, so entities that are dependent on other entities need to have
+;; their dependencies created first.
+;; TODO: Determine a data-driven way to declare dependencies
+[
+ ;; A client
+ {:type :client
+  :id :client-id
+  :key :name
+  :payload
+  {;:client-id                           "<client-id, unique and created by auth0>",
+   ;:client-secret                      "<client-secret, can be overridden, but created by auth0>",
+   :name                                "<client-name>",
+   :description
+   "A Single Page App client, to be used to authenticate application users",
+   :tenant                              "<your-auth0-tenant>",
+   :custom-login-page-on                true,
+   :jwt-configuration
+   {:alg "RS256", :lifetime-in-seconds 86400, :secret-encoded false},
+   :sso                                 true,
+   :allowed-origins
+   ["https://<application>.zendesk.com" "http://*.ngrok.io"],
+   :sso-disabled                        false,
+   :oidc-conformant                     false,
+   :global                              false,
+   :is-token-endpoint-ip-header-trusted false,
+   :token-endpoint-auth-method          "none",
+   :is-first-party                      true,
+   :callbacks
+   ["http://localhost:3000"
+    "http://localhost:3449"
+    "https://*.ngrok.io"
+    "https://<application>"],
+   :web-origins
+   ["http://localhost:3000"
+    "http://localhost:3449"
+    "https://<application>.zendesk.com"],
+   :allowed-logout-urls                 [],
+   :app-type                            "spa",
+   :logo-uri                            "",
+   :callback-url-template               false,
+   :cross-origin-auth                   false,
+   :allowed-clients                     [],
+   :signing-keys
+   [{:cert
+     "-----BEGIN CERTIFICATE-----\r\n ... \r\n-----END CERTIFICATE-----\r\n",
+     :pkcs-7
+     "-----BEGIN PKCS7-----\r\n ... \r\n-----END PKCS7-----\r\n",
+     :subject "/CN=<domain>"}],
+   :grant-types
+   ["authorization_code"
+    "http://auth0.com/oauth/grant-type/mfa-oob"
+    "http://auth0.com/oauth/grant-type/mfa-otp"
+    "http://auth0.com/oauth/grant-type/mfa-recovery-code"
+    "http://auth0.com/oauth/grant-type/password-realm"
+    "implicit"
+    "password"
+    "refresh_token"]}}
+
+ ;; A resource-server (called APIs in the dashboard)
+ {:type :resource-server
+  :key :name
+  :payload
+  {;:id                                              "<id, unique and created by auth0>",
+   :name                                            "<resource-server-name>",
+   :scopes
+   [{:value "read:api-entity", :description "Read your api-entities"}],
+   :signing-alg                                     "RS256",
+   :token-lifetime-for-web                          600,
+   :token-lifetime                                  600,
+   :identifier                                      "<identifier, also known as audience>",
+   :allow-offline-access                            false,
+   :skip-consent-for-verifiable-first-party-clients true}}
+
+ ;; A connection
+ {:type :connection
+  :key :name
+  :payload
+  {;:id                   "<id, unique and created by auth0>",
+   :options
+   {:mfa                    {:active true, :return-enroll-settings true},
+    :brute-force-protection true,
+    :strategy-version       2,
+    :password-policy        "fair"},
+   :strategy             "auth0",
+   :name                 "Username-Password-Authentication",
+   :is-domain-connection false,
+   :enabled-clients
+   ["<client-id 1>"
+    "<client-id 2>"
+    "<client-id 3>"],
+   :realms               ["Username-Password-Authentication"]}}
+
+ ;; A user
+ {:type :user
+  :id   :user-id
+  :key  :email
+  :payload
+  {;;:user-id        "auth0|<user-id>, unique and created by auth0",
+   ;;:logins-count   9,
+   ;;:updated-at     "2018-02-26T19:23:05.532Z",
+   :email          "<email-address>",
+   :user-metadata  {},
+   :app-metadata   {:role "admin"},
+   :name           "<name, or email>",
+   :nickname       "<nickname, or email without @domain...>",
+   ;;:last-login     "2018-02-26T19:23:05.532Z",
+   ;;:picture "<picure-url>",
+   :email-verified false,
+   ;;:last-ip        "65.217.185.138",
+   ;;:created-at     "2018-02-22T18:32:32.168Z",
+   :identities
+   [{:user-id    "<user-id>",
+     :provider   "auth0",
+     :connection "Username-Password-Authentication",
+     :is-social  false}]}}
+]

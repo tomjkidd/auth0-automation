@@ -7,7 +7,9 @@
     (let [exception-throwing-pipeline (conj interceptor-pipeline
                                             {:enter (fn [ctx]
                                                       (throw (ex-info "Whoops!" {:cause :whoops})))})]
-      (is (= :whoops (-> (run {:suppress-output? true} exception-throwing-pipeline)
+      (is (= :whoops (-> (run {:suppress-output? true
+                               :dryrun?          true}
+                              exception-throwing-pipeline)
                          :auth0-automation.core/exception
                          :cause))))))
 
@@ -17,6 +19,8 @@
                                {:enter (fn [ctx]
                                          (assoc ctx :auth0-automation.core/errors [{:msg "Error 1"}
                                                                                    {:msg "Error 2"}]))})]
-      (is (= ["Error 1" "Error 2"] (->> (run {:suppress-output? true} error-pipeline)
+      (is (= ["Error 1" "Error 2"] (->> (run {:suppress-output? true
+                                              :dryrun           true}
+                                              error-pipeline)
                                         :auth0-automation.core/errors
                                         (mapv :msg)))))))
