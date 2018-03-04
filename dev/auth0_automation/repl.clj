@@ -1,59 +1,33 @@
 (ns auth0-automation.repl
   (:require [auth0-automation.auth0 :as auth0]
-            [auth0-automation.core :as core]
-            [camel-snake-kebab.core :refer [->snake_case ->kebab-case]]
-            [cheshire.core :refer [generate-string parse-string]]
-            [clojure.pprint :refer [pprint]]
-            [clj-http.client :as client]))
+            [auth0-automation.core :as core]))
 
 (def env-config core/env-config)
 
-(def auth0-domain (get-in env-config [:auth0 :domain]))
-
-(def url-mappings
-  {:client          "https://%s/api/v2/clients"
-   :resource-server "https://%s/api/v2/resource-servers"
-   :connection      "https://%s/api/v2/connections"
-   :user            "https://%s/api/v2/users"})
-
-(defn build-url*
-  [url-fmt-mappings api-url-key & args]
-  (apply format (api-url-key url-fmt-mappings) args))
-
-(defn build-url
-  [api-url-key & args]
-  (apply build-url* url-mappings api-url-key auth0-domain args))
-
 (defn get-token
+  "Get an Auth0 Maintenance API access-token"
   []
   (auth0/get-token env-config))
 
-(defonce token (get-token))
-
-(defn deserialize
-  [json]
-  (parse-string json (comp keyword ->kebab-case)))
-
-(defn get-entities
-  "`type` keyword. One of #{:client :resource-server}"
-  [type token]
-  (-> (client/get (build-url type)
-                  {:headers {"Authorization" (format "Bearer %s" token)}})
-      :body
-      deserialize))
-
 (defn get-entity
-  [{:keys [type id]} auth0-entity token]
-  (-> (client/get (format "%s/%s" (build-url type) (id auth0-entity))
-                  {:headers {"Authorization" (format "Bearer %s" token)}})
-      :body
-      deserialize))
+  "Get an Auth0 Mantenance API entity, given `m`, with `:type` and `:id`"
+  ([m]
+   (get-entity m (get-token)))
+  ([m token]
+   (auth0/get-entity (assoc m :domain (get-in env-config [:auth0 :domain]) :token token))))
 
-(def entity-cache
-  (reduce (fn [acc entity-type]
-            (assoc acc entity-type (get-entities entity-type token)))
-          {}
-          (keys url-mappings)))
+(defn get-entity-cache
+  "Get all of the entities for the specified types, for repl investigation"
+  ([]
+   (get-entity-cache (get-token)))
+  ([token]
+   (reduce (fn [acc entity-type]
+             (assoc acc entity-type (auth0/get-entities {:domain (get-in env-config [:auth0 :domain])
+                                                         :type   entity-type
+                                                         :token  token})))
+           {}
+           [:client :resource-server :connection :user
+            :rule :rules-config :grant :email])))
 
 (comment
   (defn resolve-payload
