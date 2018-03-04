@@ -1,6 +1,8 @@
 (ns auth0-automation.util
   (:require [camel-snake-kebab.core :refer [->snake_case ->kebab-case]]
             [cheshire.core :refer [generate-string parse-string]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clj-http.client :as client]))
 
 (defn serialize
@@ -21,3 +23,10 @@
       (client/get {:headers {"Authorization" (format "Bearer %s" token)}})
       :body
       deserialize))
+
+(defn load-edn-config
+  "Use the `env-config` to locate the `edn-config` filepath, and read it in"
+  [env-config]
+  (let [filepath (get-in env-config [:edn-config :filepath])]
+    (when (and (some? filepath) (.exists (io/as-file filepath)))
+      (edn/read-string (slurp filepath)))))
