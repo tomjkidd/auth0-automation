@@ -45,7 +45,7 @@ Each hash-maps has `:type`, `:id-key`, `:search-key`, and `:payload` keys.
 ```
 NOTE: For most of the Auth0 API, there is a consistent mapping from entity type to url.
 While not all types have yet been explicitly supported, the `build-url` multi-method
-provides a fairly straight-forward to add more type. This repo is still beta, so take it with
+provides a fairly straight-forward way to add more. This repo is still beta, so take it with
 a grain of salt.
 ```
 
@@ -54,7 +54,7 @@ information to report to the user after the program runs to allow the user to ve
 ids are typically used in other programs to connect to specific entities).
 
 * The `:search-key` key is a keyword that represents the edn based identifier used to detect existing entities.
-It is usedby the program to determine if an entity already exists.
+It is used by the program to determine if an entity already exists.
 
 * The `:payload` key is an edn data structure that will be transformed to a json payload to use as the body for
 either a POST/PUT to create/update an entity.
@@ -65,16 +65,28 @@ NOTE: kebab-case keywords will be converted to snake_case strings
 This program will first consume the `edn-config`, get an Auth0 access-token, and sequentially process the
 edn-config using calls to the Auth0 API to determine if entities exists, or if it needs to create them. The
 program will create an intermediate data-structure based on this information to communicate the steps necessary
-to get from where the current state to the desired state. This data structure is then consumed to actually perform
-the changes. The program captures the ids of the entities that it created in order to allow the user to verify the work in the dashboard.
-
-TODO: Document environment variables
+to get from the current state to the desired state. This data structure is then consumed to actually perform
+the the API changes. The program captures the ids of the entities that it created in order to allow the user
+to verify the work in the dashboard.
 
 Run the project directly:
 
     $ boot run
 
-Run the project's tests (they'll fail until you edit them):
+Run the repl to play around
+
+    $ boot repl
+
+```clojure
+(require '[clojure.pprint :refer [pprint]])
+(require 'auth0-automation.repl)
+(in-ns 'auth0-automation.repl)
+(def ec (get-entity-cache)) ;; Will make calls for known entity types and allow you to inspect them
+(pprint (keys ec)) ;; See which entities are available, keyed by type, ie `:client` and `:resource-server`
+(->> ec :client first pprint) ;; pprint the first client returned from the tenant
+```
+
+Run the project's tests:
 
     $ boot test
 
