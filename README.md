@@ -37,11 +37,18 @@ This program relies on a few environment variables in order to work, so you must
 | `AUTH0_AUTOMATION_CLIENT_SECRET` | String | The secret that corresponds to `AUTH0_AUTOMATION_CLIENT_ID` |
 | `AUTH0_AUTOMATION_EDN_CONFIG_FILEPATH` | String | The location to look for the `edn-config` to use, more about that below |
 
-An `edn` config file contains a vector of hash-maps that represent the state of the Auth0 enviornment you are
+An `edn-config` file contains a vector of hash-maps that represent the state of the Auth0 enviornment you are
 trying to setup.
 
-Each hash-maps has `:type`, `:id-key`, `:search-key`, and `:payload` keys.
-* The `:type` key is a keyword, one of `#{:client :resource-server :connection :user}`.
+Each hash-map in edn-config has `:type`, `:id-key`, `:search-key`, and `:payload` keys.
+
+| Key | Type | Description |
+|:----|:----:|:------------|
+| :type | Keyword | One of `#{:client :resource-server :connection :user}` |
+| :id-key | Keyword | Maps to the Auth0 generated id of an entity. This key is used to collect information to report to the user after the program runs to allow the user to verify updated entities. (These ids are typically used in other programs to connect to specific entities. |
+| :search-key | Keyword | Represents the edn based identifier used to detect existing entities. It is used by the program to determine if an entity already exists. Because `:id-key` is not controlled by programmers, this provides a stable way to identify an entity.|
+| :payload | edn | An edn data structure that will be transformed to a json payload to use as the body for either a POST/PUT to create/update an entity. |
+
 ```
 NOTE: For most of the Auth0 API, there is a consistent mapping from entity type to url.
 While not all types have yet been explicitly supported, the `build-url` multi-method
@@ -49,25 +56,17 @@ provides a fairly straight-forward way to add more. This repo is still beta, so 
 a grain of salt.
 ```
 
-* The `:id-key` key is a keyword that maps to the Auth0 generated id of an entity. This key is used to collect
-information to report to the user after the program runs to allow the user to verify updated entities. (These
-ids are typically used in other programs to connect to specific entities).
-
-* The `:search-key` key is a keyword that represents the edn based identifier used to detect existing entities.
-It is used by the program to determine if an entity already exists.
-
-* The `:payload` key is an edn data structure that will be transformed to a json payload to use as the body for
-either a POST/PUT to create/update an entity.
 ```
-NOTE: kebab-case keywords will be converted to snake_case strings
+NOTE: kebab-case keywords are used for `payload`, and will be converted to snake_case strings
 ```
 
 This program will first consume the `edn-config`, get an Auth0 access-token, and sequentially process the
 edn-config using calls to the Auth0 API to determine if entities exists, or if it needs to create them. The
-program will create an intermediate data-structure based on this information to communicate the steps necessary
-to get from the current state to the desired state. This data structure is then consumed to actually perform
-the the API changes. The program captures the ids of the entities that it created in order to allow the user
-to verify the work in the dashboard.
+program will create an intermediate data-structure, `api-actions` based on this information to communicate
+the steps necessary to get from the current state to the desired state. Finally, api-actions is then consumed
+to actually perform the the changes. The program captures the ids of the entities that it created and provides
+them as edn output in order to allow the user to verify the work via the dashboard and/or to use the results
+downstream to programmatically ensure other parts of the system are configured correctly.
 
 Run the project directly:
 
@@ -78,11 +77,11 @@ Run the repl to play around
     $ boot repl
 
 ```clojure
-(require '[clojure.pprint :refer [pprint]])
 (require 'auth0-automation.repl)
 (in-ns 'auth0-automation.repl)
+(require '[clojure.pprint :refer [pprint]])
 (def ec (get-entity-cache)) ;; Will make calls for known entity types and allow you to inspect them
-(pprint (keys ec)) ;; See which entities are available, keyed by type, ie `:client` and `:resource-server`
+(pprint (keys ec)) ;; See which entities are available, keyed by type, ie :client and :resource-server
 (->> ec :client first pprint) ;; pprint the first client returned from the tenant
 ```
 
