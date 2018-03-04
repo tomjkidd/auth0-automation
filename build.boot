@@ -5,6 +5,10 @@
           :source-paths   #{"test"}
           :dependencies   '[[org.clojure/clojure "RELEASE"]
                             [adzerk/boot-test "RELEASE" :scope "test"]
+                            [camel-snake-kebab "0.4.0"]
+                            [cheshire "5.8.0"]
+                            [clj-http "3.7.0"]
+                            [environ "1.1.0"]
                             [io.pedestal/pedestal.interceptor "0.5.3"]])
 
 (task-options!
