@@ -32,18 +32,18 @@ An `edn` config file contains a vector of hash-maps that represent the state of 
 trying to setup.
 
 Each hash-maps has `:type`, `:id`, `:key`, and `:payload` keys.
-The `:type` key is a keyword, one of `#{:client :resource-server :connection :user}`.
+* The `:type` key is a keyword, one of `#{:client :resource-server :connection :user}`.
 ```
 NOTE: For most of the Auth0 API, there is a consistent mapping from entity type to url.
 While not all types have yet been explicitly supported, it should be faily straight-forward
 to add more types, or rely on a rule to open them up. This repo is still beta, so take it with
 a grain of salt.
 ```
-The `:id` key is a keyword that maps to the Auth0 generated id of an entity. This key is used to collect
+* The `:id` key is a keyword that maps to the Auth0 generated id of an entity. This key is used to collect
 information to report to the user after the program runs to allow the user to verify updated entities.
-The `:key` key is a keyword that represents the edn based identifier used to detect existing entities. It is used
+* The `:key` key is a keyword that represents the edn based identifier used to detect existing entities. It is used
 by the program to determine if an entity already exists.
-The `:payload` key is an edn data structure that will be transformed to a json payload to use as the body for
+* The `:payload` key is an edn data structure that will be transformed to a json payload to use as the body for
 either a POST/PUT to create/update an entity.
 ```
 NOTE: kebab-case keywords will be converted to snake_case strings
