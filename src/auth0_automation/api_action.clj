@@ -1,6 +1,7 @@
 (ns auth0-automation.api-action
   "The namespace responsible for the creation and manipulation of `api-actions`"
   (:require [auth0-automation.auth0 :as auth0]
+            [auth0-automation.util :as util]
             [clojure.data]))
 
 (defmulti api-action
@@ -70,9 +71,36 @@
   environment. This vector is processed sequentially to decide what to do for each.
   See `determine-api-action` for more details."
   [token edn-config env-config]
-  (:api-actions (reduce (fn [acc edn-entity]
-                          (update acc :api-actions conj (determine-api-action acc edn-entity)))
-                        {:token       token
-                         :domain      (get-in env-config [:auth0 :domain])
-                         :api-actions []}
-                        edn-config)))
+  (:api-actions
+   (reduce (fn [acc edn-entity]
+             (update acc :api-actions conj (determine-api-action acc edn-entity)))
+           {:token       token
+            :domain      (get-in env-config [:auth0 :domain])
+            :api-actions []}
+           edn-config)))
+
+(defn transact-api-action!
+  [{:keys [token domain]} {:keys [node-type auth0-entity edn-entity]}]
+  (let [{:keys [type id-key payload]} edn-entity
+        base-url (auth0/build-url domain type)
+
+        {:keys [url body transact-fn]}
+        (case node-type
+          :create {:url base-url
+                   :body payload
+                   :transact-fn util/http-post}
+          :update {:url (format "%s/%s" base-url (id-key auth0-entity))
+                   :body payload
+                   :transact-fn util/http-patch}
+          :noop {:transact-fn (constantly nil)})]
+    (transact-fn url body token)))
+
+(defn transact-api-actions!
+  [token api-actions env-config]
+  (:api-responses
+   (reduce (fn [acc api-action]
+             (update acc :api-responses conj (transact-api-action! acc api-action)))
+           {:token         token
+            :domain        (get-in env-config [:auth0 :domain])
+            :api-responses []}
+           api-actions)))

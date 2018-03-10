@@ -1,8 +1,8 @@
 (ns auth0-automation.repl
-  (:require [auth0-automation.auth0 :as auth0]
+  (:require [auth0-automation.api-action :as api-action]
+            [auth0-automation.auth0 :as auth0]
             [auth0-automation.core :as core]
             [auth0-automation.util :as util]
-            [auth0-automation.api-action :as api-action]
             [clojure.pprint :as pp]))
 
 (def env-config core/env-config)
@@ -35,7 +35,7 @@
                                                          :token  token})))
            {}
            [:client :resource-server :connection :user
-            :rule :rules-config :grant :email])))
+            :client-grant :rule :rules-config :grant :email])))
 
 (defn tinker
   "Demonstrates api-action determination (relies on a private environment and config...)"

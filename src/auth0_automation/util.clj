@@ -15,14 +15,37 @@
   [json]
   (parse-string json (comp keyword ->kebab-case)))
 
+(defn http-helper
+  "A helper that captures what is common to all http requests
+
+  NOTE: The Auth0 http requests return status codes in their bodies on failure,
+  and this is relied on, at least for the moment."
+  [http-fn {:keys [url body token]}]
+  (-> (http-fn url (cond-> {:headers {"Authorization" (format "Bearer %s" token)}}
+                     body (merge {:content-type     :json
+                                  :body             (serialize body)
+                                  :accept           :json
+                                  :throw-exceptions false})))
+      :body
+      deserialize))
+
 (defn http-get
   "Perform and HTTP get at `url`, using `token` for authz.
   Assumes a json response, and converts it to kebab-case key edn"
   [url token]
-  (-> url
-      (client/get {:headers {"Authorization" (format "Bearer %s" token)}})
-      :body
-      deserialize))
+  (http-helper client/get {:url url :token token}))
+
+(defn http-post
+  "Perform an HTTP post at `url`, with `body`, using `token` for authz.
+  Assumes a json response, and converts it to kebab-case key edn"
+  [url body token]
+  (http-helper client/post {:url url :body body :token token}))
+
+(defn http-patch
+  "Perform an HTTP patch at `url`, with `body`, using `token` for authz.
+  Assumes a json response, and converts it to kebab-case key edn"
+  [url body token]
+  (http-helper client/patch {:url url :body body :token token}))
 
 (defn load-edn-config
   "Use the `env-config` to locate the `edn-config` filepath, and read it in"
