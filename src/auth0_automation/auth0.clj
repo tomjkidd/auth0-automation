@@ -88,3 +88,16 @@
   "Perform an Auth API get for the specific entity of `type` identified by `id`, using `token` for authz"
   [{:keys [domain type id token]}]
   (util/http-get (format "%s/%s" (build-url domain type) id) token))
+
+(defn snapshot
+  "Take a snapshot of the current existing Auth0 entities for each type in `types`.
+
+  This is useful for creating an initial configuration"
+  [{:keys [domain types token]
+    :or   {types [:client :resource-server :connection :rule]}}]
+  (reduce (fn [acc entity-type]
+            (assoc acc entity-type (get-entities {:domain domain
+                                                  :type   entity-type
+                                                  :token  token})))
+          {}
+          types))

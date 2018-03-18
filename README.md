@@ -85,6 +85,17 @@ Run the repl to play around
 (->> ec :client first pprint) ;; pprint the first client returned from the tenant
 ```
 
+```
+(require '[auth0-automation.core :as core])
+(require '[auth0-automation.auth0 :as auth0])
+(require '[clojure.pprint :refer [pprint]])
+
+(def token (auth0/get-token core/env-config))
+(def domain (get-in core/env-config [:auth0 :domain]))
+(def snapshot (auth0/snapshot {:domain domain :token token :types [:client :resource-server :connection :rule]}))
+(spit "auth0-snapshot.edn" (with-out-str (pprint snapshot)))
+```
+
 Run the project's tests:
 
     $ boot test

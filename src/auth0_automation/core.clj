@@ -48,18 +48,25 @@
                 :client-secret (env :auth0-automation-client-secret)}
    :edn-config {:filepath (env :auth0-automation-edn-config-filepath)}})
 
-(def provide-env-config
-  "Adds `env-config` to the context."
-  {:enter (fn [ctx]
-            (assoc ctx :env-config env-config))})
+(def ensure-env-config
+  "Adds `env-config` to the context.
 
-(def read-edn-configuration
-  "Reads the `edn-configuration` file that describes the desired Auth0 environment"
-  {:enter (fn [{:keys [env-config] :as ctx}]
-            (if-let [edn-config (util/load-edn-config env-config)]
-              (assoc ctx :edn-config edn-config)
-              (assoc ctx ::errors [{:type :edn-config-does-not-exist
-                                    :msg  "Was unable to locate an edn-config file. Make sure the filepath points to an actual file."}])))})
+  If passed in through `opts`, use that, otherwise use the environment variables."
+  {:enter (fn [{:keys [opts] :as ctx}]
+            (assoc ctx :env-config (or (:env-config opts) env-config)))})
+
+(def ensure-edn-configuration
+  "Reads the `edn-configuration` file that describes the desired Auth0 environment
+
+  If passed in through `opts`, use that, otherwise attempt to load file using environment variable."
+  {:enter (fn [{:keys [opts env-config] :as ctx}]
+            (let [{:keys [edn-config]} opts]
+              (if edn-config
+                (assoc ctx :edn-config edn-config)
+                (if-let [edn-config (util/load-edn-config env-config)]
+                  (assoc ctx :edn-config edn-config)
+                  (assoc ctx ::errors [{:type :edn-config-does-not-exist
+                                        :msg  "Was unable to locate an edn-config file. Make sure the filepath points to an actual file."}])))))})
 
 (def get-auth0-token
   "Attempts to get an Auth0 Management API token"
@@ -169,19 +176,26 @@
   [exception-interceptor
    errors-interceptor
    abort-interceptor
-   provide-env-config
-   read-edn-configuration
+   ensure-env-config
+   ensure-edn-configuration
    get-auth0-token
    determine-api-actions
    confirm-api-actions
    transact-api-actions!])
 
-(defn run
+(defn run-pipeline
   "Perform the Auth0 environment update to match the desired configuration"
   ([opts]
-   (run opts interceptor-pipeline))
+   (run-pipeline opts interceptor-pipeline))
   ([opts pipeline]
    (interceptor-chain/execute {:opts opts} pipeline)))
+
+(defn run
+  "Run the Auth0 environment update, report results, and exit."
+  [opts]
+  (let [result (run-pipeline opts)]
+    (report-results result)
+    (System/exit (determine-exit-code result))))
 
 (def cli-options
   "The `parse-opts` cli options to provide the program"
@@ -235,8 +249,5 @@
   (let [{:keys [action summary] :as opts} (args->opts args)]
     (pprint opts)
     (if (not= :help action)
-      (do
-        (let [result (run opts)]
-          (report-results result)
-          (System/exit (determine-exit-code result))))
+      (run opts)
       (println (usage summary)))))

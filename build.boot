@@ -24,6 +24,11 @@
  jar {:main        'auth0-automation.core
       :file        (str "auth0-automation-" version "-standalone.jar")})
 
+(deftask build-install
+  "Build and install the project locally."
+  []
+  (comp (pom) (jar) (install)))
+
 (deftask build
   "Build the project locally as a JAR."
   [d dir PATH #{str} "the set of directories to write to (target)."]
