@@ -21,11 +21,11 @@
   NOTE: The Auth0 http requests return status codes in their bodies on failure,
   and this is relied on, at least for the moment."
   [http-fn {:keys [url body token]}]
-  (-> (http-fn url (cond-> {:headers {"Authorization" (format "Bearer %s" token)}}
+  (-> (http-fn url (cond-> {:headers          {"Authorization" (format "Bearer %s" token)}
+                            :accept           :json
+                            :throw-exceptions false}
                      body (merge {:content-type     :json
-                                  :body             (serialize body)
-                                  :accept           :json
-                                  :throw-exceptions false})))
+                                  :body             (serialize body)})))
       :body
       deserialize))
 

@@ -105,71 +105,106 @@
                         (assoc ctx ::abort {:msg "The user decided to quit."})))))
                 ctx)))})
 
+(defn get-api-action-error
+  "Return an error if there was an error, else nil
+
+  When there are errors, the `status-code`, `error`, `error-code`, and `message` keys are
+  available."
+  [{:keys [node-type]} {:keys [error] :as api-response}]
+  (condp = node-type
+    :create (when error (set/rename-keys api-response {:message :msg}))
+    :update (when error (set/rename-keys api-response {:message :msg}))
+    :noop nil))
+
+(defn get-api-action-transact-errors
+  "Detects and collects any errors that occurred while transacting `api-actions`, based on `api-responses`."
+  [api-actions api-responses]
+  (->> api-responses
+       (map #(get-api-action-error %1 %2) api-actions)
+       (keep identity)))
+
 (def transact-api-actions!
   "Performs the actions identified by `::api-actions` against the Auth0 environment"
   {:enter (fn [{:keys [opts auth0-token api-actions env-config] :as ctx}]
             (let [{:keys [dry-run?]} opts]
               (if dry-run?
                 ctx
-                (let [api-responses (api-action/transact-api-actions! auth0-token api-actions env-config)]
-                  ;; TODO: Detect errors and add them to `::errors`
-                  (assoc ctx :api-responses api-responses)))))})
+                (let [api-responses (api-action/transact-api-actions! auth0-token api-actions env-config)
+                      api-errors    (get-api-action-transact-errors api-actions api-responses)]
+                  (if (zero? (count api-errors))
+                    (assoc ctx :api-responses api-responses)
+                    (assoc ctx ::errors api-errors))))))})
 
+(defn verbose-ctx
+  "Removes some keys from the context that don't provide value to the user."
+  [ctx]
+  (dissoc ctx
+          :io.pedestal.interceptor.chain/execution-id
+          :io.pedestal.interceptor.chain/queue
+          :io.pedestal.interceptor.chain/stack
+          :io.pedestal.interceptor.chain/terminators))
 
 (defn- display-error-msg
   [{:keys [msg]}]
   (when msg
     (println "Error msg: " msg)))
 
-(defn report-results
+(defn format-output
+  "Based on `output-format` and other options, determine the program output."
+  [{:keys [summary details ctx] :as edn-output} {{:keys [output-format verbose?]} :opts :as ctx}]
+  (condp = output-format
+    :EDN (cond-> edn-output
+           (not verbose?) (dissoc :ctx))
+    :HR (with-out-str
+          (when verbose?
+            (pprint ctx))
+          (pprint summary)
+          (pprint details))
+    nil edn-output))
+
+(defmulti get-edn-output
+  "Use the `exit-code` to chose how to contruct the program output"
+  (fn [exit-code ctx] exit-code))
+
+(defmethod get-edn-output EXCEPTION [_ ctx]
+  (let [ex (::exception ctx)]
+    {:summary "Unexpected exception occurred"
+     :details ex}))
+
+(defmethod get-edn-output ERRORS [_ ctx]
+  (let [errors     (::errors ctx)]
+    {:summary "Error(s) occured."
+     :details (with-out-str
+                (doseq [err errors]
+                  (display-error-msg err)))}))
+
+(defmethod get-edn-output ABORT [_ ctx]
+  (let [{:keys [msg]} (::abort ctx)]
+    {:summary "Abort occured."
+     :details msg}))
+
+(defmethod get-edn-output :default [_ {{:keys [dry-run?]} :opts :as ctx}]
+  {:summary (if dry-run?
+              "Dry run: api-actions that would be performed are displayed above"
+              "Successfully configured the Auth0 environment")
+   :details (if dry-run?
+              (select-keys ctx [:api-actions])
+              (mapv #(hash-map :api-action %1 :api-response %2)
+                    (:api-actions ctx)
+                    (:api-responses ctx)))})
+
+(defn determine-output
   "Use the exit-code, ::exception, ::errors, and ::abort to determine how to communicate results to the user."
-  [{:keys [opts] :as ctx}]
-  (let [{:keys [suppress-output? verbose? dry-run?]} opts
-        exit-code (determine-exit-code ctx)
-        verbose-ctx                                  (dissoc ctx
-                                                             :io.pedestal.interceptor.chain/execution-id
-                                                             :io.pedestal.interceptor.chain/queue
-                                                             :io.pedestal.interceptor.chain/stack
-                                                             :io.pedestal.interceptor.chain/terminators)]
-    (cond
-      (= EXCEPTION exit-code)
-      (let [ex (::exception ctx)]
-        (when-not suppress-output?
-          (if verbose?
-            (pprint {:ctx verbose-ctx
-                     :ex  ex})
-            (pprint ex))
-          (println "Unexpected exception occured.")))
+  [ctx]
+  (assoc ctx :output (-> (determine-exit-code ctx)
+                         (get-edn-output ctx)
+                         (assoc :ctx (verbose-ctx ctx))
+                         (format-output ctx))))
 
-      (= ERRORS exit-code)
-      (let [errors (::errors ctx)]
-        (when-not suppress-output?
-          (when verbose?
-            (pprint verbose-ctx))
-          (println "Error(s) occured.")
-          (doseq [err errors]
-            (display-error-msg err))))
-
-      (= ABORT exit-code)
-      (let [{:keys [msg]} (::abort ctx)]
-        (when-not suppress-output?
-          (when verbose?
-            (pprint verbose-ctx))
-          (println "Abort occured.")
-          (println msg)))
-
-      :else
-      (when-not suppress-output?
-        (do
-          (when verbose?
-            (pprint verbose-ctx))
-
-          (if dry-run?
-            (do
-              (pprint (:api-actions ctx))
-              (println "Dry run: api-actions that would be performed are displayed above"))
-            (println "Successfully configured the Auth0 environment"))))))
-  ctx)
+(defn report-results
+  "Print `output`"
+  [{:keys [output]}]
+  (pprint output))
 
 (def interceptor-pipeline
   "The pipeline of interceptors used to perform the Auth0 environment update"
@@ -193,8 +228,11 @@
 (defn run
   "Run the Auth0 environment update, report results, and exit."
   [opts]
-  (let [result (run-pipeline opts)]
-    (report-results result)
+  (let [result (run-pipeline opts)
+        ;; NOTE: This is done outside of the pipeline in order to analyze the ctx
+        ;; to determine what happened (which would get skipped for errors as part of it)
+        output (determine-output result)]
+    (report-results output)
     (System/exit (determine-exit-code result))))
 
 (def cli-options
@@ -205,8 +243,7 @@
     :default false]
    ["-d" "--dryrun" "Allow the user to see the proposed `api-actions` without actually performing them."
     :default false]
-   ;; TODO: Enable this feature
-   #_["-f" "--output-format" "Output data format, one of #{\"HR\" \"EDN\"}. HR is human readable with summary messages, while EDN puts the messages and output into an edn data structure, so it can be used as input to another program. Default is EDN."
+   ["-f" "--output-format" "Output data format, one of #{\"HR\" \"EDN\"}. HR is human readable with summary messages, while EDN puts the messages and output into an edn data structure, so it can be used as input to another program. Default is EDN."
     :default "EDN"]
    ["-h" "--help" "Print out usage"]])
 
@@ -220,9 +257,9 @@
                  :else (first arguments))]
     (-> options
         (update :output-format #(-> % string/upper-case keyword))
-        (set/rename-keys {:verbose :verbose?
+        (set/rename-keys {:verbose     :verbose?
                           :interactive :interactive?
-                          :dryrun :dry-run?})
+                          :dryrun      :dry-run?})
         (assoc :action action :summary summary))))
 
 (defn usage
@@ -247,7 +284,6 @@
   the environment while running this script!"
   [& args]
   (let [{:keys [action summary] :as opts} (args->opts args)]
-    (pprint opts)
     (if (not= :help action)
       (run opts)
       (println (usage summary)))))
