@@ -4,6 +4,7 @@
 (set-env! :resource-paths #{"resources" "src" "dev"}
           :source-paths   #{"test"}
           :dependencies   '[[org.clojure/clojure "RELEASE"]
+                            [adzerk/bootlaces "0.1.13"]
                             [adzerk/boot-test "RELEASE" :scope "test"]
                             [camel-snake-kebab "0.4.0"]
                             [cheshire "5.8.0"]
@@ -41,4 +42,8 @@
   (require '[auth0-automation.core :as app])
   (apply (resolve 'app/-main) args))
 
+(require '[adzerk.bootlaces :refer [bootlaces! build-jar push-snapshot]])
 (require '[adzerk.boot-test :refer [test]])
+
+(def +version+ version)
+(bootlaces! +version+)
