@@ -79,18 +79,34 @@
             :api-actions []}
            edn-config)))
 
+(def default-payload-manipulation-config
+  "A map from entity type keys to values needed to create or update type.
+
+  This is needed because the payloads is assumed to be acquired from a GET request initially,
+  and the create and update actions don't accept all of the same keys."
+  {:client
+   {:dissoc-for-create [:tenant :client-id :callback-url-template :global :owners :config-route]}
+
+   :resource-server
+   {:dissoc-for-create [:id]}
+
+   :connection
+   {:dissoc-for-create [:id]
+    :dissoc-for-update [:id :name :strategy]}})
+
 (defn transact-api-action!
   [{:keys [token domain]} {:keys [node-type auth0-entity edn-entity]}]
   (let [{:keys [type id-key payload]} edn-entity
         base-url (auth0/build-url domain type)
+        {:keys [dissoc-for-create dissoc-for-update]} (type default-payload-manipulation-config)
 
         {:keys [url body transact-fn]}
         (case node-type
           :create {:url base-url
-                   :body payload
+                   :body (apply dissoc payload dissoc-for-create)
                    :transact-fn util/http-post}
           :update {:url (format "%s/%s" base-url (id-key auth0-entity))
-                   :body payload
+                   :body (apply dissoc payload dissoc-for-update)
                    :transact-fn util/http-patch}
           :noop {:transact-fn (constantly nil)})]
     (transact-fn url body token)))

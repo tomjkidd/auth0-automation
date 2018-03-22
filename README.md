@@ -85,7 +85,7 @@ Run the repl to play around
 (->> ec :client first pprint) ;; pprint the first client returned from the tenant
 ```
 
-```
+```clojure
 (require '[auth0-automation.core :as core])
 (require '[auth0-automation.auth0 :as auth0])
 (require '[clojure.pprint :refer [pprint]])
