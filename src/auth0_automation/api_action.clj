@@ -92,7 +92,10 @@
 
    :connection
    {:dissoc-for-create [:id]
-    :dissoc-for-update [:id :name :strategy]}})
+    :dissoc-for-update [:id :name :strategy]}
+
+   :rule
+   {:dissoc-for-create [:id]}})
 
 (defn transact-api-action!
   [{:keys [token domain]} {:keys [node-type auth0-entity edn-entity]}]
