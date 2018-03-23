@@ -85,10 +85,12 @@
   This is needed because the payloads is assumed to be acquired from a GET request initially,
   and the create and update actions don't accept all of the same keys."
   {:client
-   {:dissoc-for-create [:tenant :client-id :callback-url-template :global :owners :config-route]}
+   {:dissoc-for-create [:tenant :client-id :callback-url-template :global :owners :config-route]
+    :dissoc-for-update [:tenant :client-id :callback-url-template :global :owners :config_route]}
 
    :resource-server
-   {:dissoc-for-create [:id]}
+   {:dissoc-for-create [:id]
+    :dissoc-for-update [:id :identifier]}
 
    :connection
    {:dissoc-for-create [:id]
