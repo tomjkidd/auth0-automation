@@ -234,8 +234,9 @@
         ;; to determine what happened (which would get skipped for errors as part of it)
         output (determine-output result)]
     (report-results output)
-    (when exit?
-      (System/exit (determine-exit-code result)))))
+    (if exit?
+      (System/exit (determine-exit-code result))
+      output)))
 
 (def cli-options
   "The `parse-opts` cli options to provide the program"
