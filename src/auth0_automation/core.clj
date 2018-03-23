@@ -227,13 +227,15 @@
 
 (defn run
   "Run the Auth0 environment update, report results, and exit."
-  [opts]
+  [{:keys [exit?] :as opts
+    :or {exit? true}}]
   (let [result (run-pipeline opts)
         ;; NOTE: This is done outside of the pipeline in order to analyze the ctx
         ;; to determine what happened (which would get skipped for errors as part of it)
         output (determine-output result)]
     (report-results output)
-    (System/exit (determine-exit-code result))))
+    (when exit?
+      (System/exit (determine-exit-code result)))))
 
 (def cli-options
   "The `parse-opts` cli options to provide the program"
@@ -259,7 +261,8 @@
         (update :output-format #(-> % string/upper-case keyword))
         (set/rename-keys {:verbose     :verbose?
                           :interactive :interactive?
-                          :dryrun      :dry-run?})
+                          :dryrun      :dry-run?
+                          :exit?       true})
         (assoc :action action :summary summary))))
 
 (defn usage
