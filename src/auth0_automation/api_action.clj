@@ -5,7 +5,7 @@
             [clojure.data]))
 
 (defmulti api-action
-  "A hash-map with at least `:node-type`, `:msg`, and `edn-entity` keys
+  "A hash-map with at least `:node-type`, `:msg`, and `edn-config-entry` keys
 
   Used to describe the api operations that need to be performed to create the desired
   Auth0 environment compared to the existing one."
@@ -13,21 +13,34 @@
 
 (defmethod api-action
   :create
-  [{:keys [node-type edn-entity] :as node}]
-  (let [{:keys [type search-key payload]} edn-entity]
-    (assoc node :msg (format "Create %s: %s" (name type) (search-key payload)))))
+  [{:keys [node-type edn-config-entry] :as node}]
+  (let [{:keys [entity-type search-key payload]} edn-config-entry]
+    (assoc node :msg (format "Create %s: %s" (name entity-type) (search-key payload)))))
 
 (defmethod api-action
   :update
-  [{:keys [node-type diff auth0-entity edn-entity] :as node}]
-  (let [{:keys [type search-key payload]} edn-entity]
-    (assoc node :msg (format "Update %s: %s" (name type) (search-key payload)))))
+  [{:keys [node-type diff auth0-entity edn-config-entry] :as node}]
+  (let [{:keys [entity-type search-key payload]} edn-config-entry]
+    (assoc node :msg (format "Update %s: %s" (name entity-type) (search-key payload)))))
 
 (defmethod api-action
   :noop
-  [{:keys [node-type edn-entity] :as node}]
-  (let [{:keys [type search-key payload]} edn-entity]
-    (assoc node :msg (format "No-op %s: %s" (name type) (search-key payload)))))
+  [{:keys [node-type edn-config-entry] :as node}]
+  (let [{:keys [entity-type search-key payload]} edn-config-entry]
+    (assoc node :msg (format "No-op %s: %s" (name entity-type) (search-key payload)))))
+
+(defmethod api-action
+  :ref-dep
+  [{:keys [node-type edn-config-entry] :as node}]
+  (let [{:keys [entity-type search-key search-value dependency-key dependency-value]} edn-config-entry]
+    (assoc node :msg (format "Referential Dependency for %s: Will look for key %s with value %s (of type %s) and set %s to %s (of type %s)"
+                             (name entity-type)
+                             search-key
+                             search-value
+                             (type search-value)
+                             dependency-key
+                             dependency-value
+                             (type dependency-value)))))
 
 (defn diff
   "Determine the diff between the two entities to figure out how to handle update."
@@ -38,31 +51,50 @@
        :edn-version edn-versions
        :in-agreement in-agreement})))
 
-(defn determine-api-action
+(defn determine-entity-api-action
   "Calls out to the Auth0 api to get all existing entities, and tries to locate a
   match, based on the `:search-key` of the given `edn-entity`.
 
   If not found, a `:create` api-action is returned.
   If found, a diff is done to see if there are changes.
   When there are changes, a `:update` api-action is returned, otherwise a `:noop`"
-  [{:keys [token domain]} {:keys [search-key payload type] :as edn-entity}]
+  [{:keys [token domain]} {:keys [search-key payload entity-type] :as edn-config-entry}]
   (let [auth0-entities (auth0/get-entities {:domain domain
-                                            :type   type
+                                            :type   entity-type
                                             :token  token})
         auth0-entity (->> auth0-entities
                           (filter #(= (search-key payload) (search-key %)))
                           first)]
     (api-action (if auth0-entity
-                  (if-let [d (diff auth0-entity edn-entity)]
-                    {:node-type    :update
-                     :diff         d
-                     :auth0-entity auth0-entity
-                     :edn-entity   edn-entity}
+                  (if-let [d (diff auth0-entity edn-config-entry)]
+                    {:node-type        :update
+                     :diff             d
+                     :auth0-entity     auth0-entity
+                     :edn-config-entry edn-config-entry}
                     {:node-type    :noop
                      :auth0-entity auth0-entity
-                     :edn-entity   edn-entity})
+                     :edn-config-entry   edn-config-entry})
                   {:node-type  :create
-                   :edn-entity edn-entity}))))
+                   :edn-config-entry edn-config-entry}))))
+
+(defmulti determine-api-action
+  "A hash-map used to translate a desired edn-config-entry to an api-action
+
+  :entity api actions are ones where payloads are used to create or edit entities
+  :referential-dependency api-actions are ones for existing entities to refer to other entities"
+  (fn [acc {:keys [type]}] type))
+
+(defmethod determine-api-action
+  :entity
+  [acc edn-config-entry]
+  (determine-entity-api-action acc edn-config-entry))
+
+(defmethod determine-api-action
+  :referential-dependency
+  [acc edn-config-entry]
+  ;; Assumes that the command will run after all entities it depends on, may want to do a check
+  (api-action {:node-type :ref-dep
+               :edn-config-entry edn-config-entry}))
 
 (defn determine-api-actions
   "Process `edn-config` to determine the `api-actions` that are necessary.
@@ -72,8 +104,8 @@
   See `determine-api-action` for more details."
   [token edn-config env-config]
   (:api-actions
-   (reduce (fn [acc edn-entity]
-             (update acc :api-actions conj (determine-api-action acc edn-entity)))
+   (reduce (fn [acc edn-config-entry]
+             (update acc :api-actions conj (determine-api-action acc edn-config-entry)))
            {:token       token
             :domain      (get-in env-config [:auth0 :domain])
             :api-actions []}
@@ -114,7 +146,9 @@
           :update {:url (format "%s/%s" base-url (id-key auth0-entity))
                    :body (apply dissoc payload dissoc-for-update)
                    :transact-fn util/http-patch}
-          :noop {:transact-fn (constantly nil)})]
+          :noop {:transact-fn (constantly nil)}
+          ;; TODO: Implement this
+          :ref-dep {:transact-fn (constantly nil)})]
     (transact-fn url body token)))
 
 (defn transact-api-actions!

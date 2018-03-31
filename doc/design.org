@@ -1,0 +1,42 @@
+* EDN Config
+** TODO Add a way to call out referential dependencies
+
+Because some Auth0 entities allow configurations that refer to other Auth0 entities,
+a way to communicate these dependencies is needed so that after creating the entities,
+an api-action can be taken to update the dependency with the correct information.
+
+This will require a refactor to the edn-config data structure to include a way to specify
+these dependencies.
+
+For example, the :client type has an :allowed-clients array of client-ids, which are not
+known in edn-config. Instead, we have to be able to create this list based on the names
+of entities which are known, and at runtime translate this knowledge to construct the
+ids to set for this field, after all the dependecies have been created.
+
+By making this an explicit config step, it allows the specification of the relationships, and
+can be captured in a unique PATCH to updated the desired property.
+
+*** Current design
+
+edn-config is a list of hash-maps, described in the readme
+Each hash-map has #{:id-key :search-key payload type} keys
+
+*** New design
+
+EDN_CONFIG : List of EDN_CONFIG_ENTRY nodes
+
+EDN_CONFIG_ENTRY : Node of type ENTITY | REFERENTIAL_DEPENDENCY
+
+ENTITY :
+- hash-map with #{:type :entity-type :id-key :search-key :payload} keys, as defined in readme
+- :entity-type of :entity
+
+REFERENTIAL_DEPENDENCY :
+- hash-map with #{:type :entity-type :id-key :search-key :search-value :dependency-key :dependency-value}
+- :entity-type of :referential-dependency
+
+*** Required changes
+
+While determining api-actions, access to the previous nodes may be needed to inform new actions
+edn-config is no longer 1-to-1 with api-actions.
+The api-actions section needs to understand how to work with the new REFERENTIAL_DEPENDENCY node.

@@ -43,4 +43,5 @@
   (let [token (get-token)
         edn-config (get-edn-config)
         api-actions (api-action/determine-api-actions token edn-config env-config)]
-    (pp/pprint api-actions)))
+    (pp/pprint api-actions)
+    (pp/pprint (mapv :msg api-actions))))
