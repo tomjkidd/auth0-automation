@@ -1,0 +1,38 @@
+{:auth0-automation/doc
+ "This is a map from entity type keys to common values needed when working with those types.
+
+  auth0-automation uses this config to help it keep little knowledge in code for how to work
+  with entity payloads so that support for other types can trivially be added.
+
+  Some of the specific uses:
+  1) json payloads are assumed to be acquired from a GET request initially,
+     and the create and update actions don't accept all of the same keys.
+  2) Some entities use :id as a key, while others don't follow that convention.
+  3) To be able to tweak these things without a new version is useful for capturing
+     sensible defaults, but allowing others to include more if needed with ease."
+
+ :client
+ {:id-key :client-id
+  :dissoc-for-create [:tenant :client-id :callback-url-template :global :owners :config-route]
+  :dissoc-for-update [:tenant :client-id :callback-url-template :global :owners :config-route
+                      [:jwt-configuration :secret-encoded]]}
+
+ :resource-server
+ {:id-key :id
+  :dissoc-for-create [:id]
+  :dissoc-for-update [:id :identifier]}
+
+ :connection
+ {:id-key :id
+  :referential-dependencies [{:dependency-entity-type :client
+                              ;; Used to isolate the entity after creation
+                              :search-key             :name
+                              ;; Used to identify the payload field that must be updated
+                              :dependency-key         :enabled-clients}]
+  :dissoc-for-create [:id]
+  :dissoc-for-update [:id :name :strategy]}
+
+ :rule
+ {:id-key :id
+  :dissoc-for-create [:id]
+  :dissoc-for-update [:id :stage]}}

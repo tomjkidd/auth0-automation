@@ -2,6 +2,8 @@
   (:require [auth0-automation.api-action :as api-action]
             [auth0-automation.auth0 :as auth0]
             [auth0-automation.util :as util]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.set :as set]
             [clojure.string :as string]
@@ -68,6 +70,19 @@
                   (assoc ctx ::errors [{:type :edn-config-does-not-exist
                                         :msg  "Was unable to locate an edn-config file. Make sure the filepath points to an actual file."}])))))})
 
+(def ensure-entity-manipulation-configuration
+  "Reads the `entity-manipulation-configuration` file that describes entity-specific configuration
+  details for concerns of interacting with the Auth0 Management API
+
+  If passed in through `opts`, use that, otherwise attempt to load the resource file"
+  {:enter (fn [{:keys [opts] :as ctx}]
+            (let [{:keys [entity-manipulation-config]} opts]
+              (assoc ctx :entity-manipulation-config (or entity-manipulation-config
+                                                         (-> "entity-manipulation-config.edn"
+                                                             io/resource
+                                                             slurp
+                                                             edn/read-string)))))})
+
 (def get-auth0-token
   "Attempts to get an Auth0 Management API token"
   {:enter (fn [{:keys [env-config] :as ctx}]
@@ -114,7 +129,8 @@
   (condp = node-type
     :create (when error (set/rename-keys api-response {:message :msg}))
     :update (when error (set/rename-keys api-response {:message :msg}))
-    :noop nil))
+    :noop nil
+    :ref-dep (when error (set/rename-keys api-response {:message :msg}))))
 
 (defn get-api-action-transact-errors
   "Detects and collects any errors that occurred while transacting `api-actions`, based on `api-responses`."
@@ -125,11 +141,11 @@
 
 (def transact-api-actions!
   "Performs the actions identified by `::api-actions` against the Auth0 environment"
-  {:enter (fn [{:keys [opts auth0-token api-actions env-config] :as ctx}]
+  {:enter (fn [{:keys [opts auth0-token api-actions env-config entity-manipulation-config] :as ctx}]
             (let [{:keys [dry-run?]} opts]
               (if dry-run?
                 ctx
-                (let [api-responses (api-action/transact-api-actions! auth0-token api-actions env-config)
+                (let [api-responses (api-action/transact-api-actions! auth0-token api-actions env-config entity-manipulation-config)
                       api-errors    (get-api-action-transact-errors api-actions api-responses)]
                   (if (zero? (count api-errors))
                     (assoc ctx :api-responses api-responses)
@@ -213,6 +229,7 @@
    abort-interceptor
    ensure-env-config
    ensure-edn-configuration
+   ensure-entity-manipulation-configuration
    get-auth0-token
    determine-api-actions
    confirm-api-actions
