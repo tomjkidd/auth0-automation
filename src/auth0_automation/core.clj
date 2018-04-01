@@ -94,8 +94,8 @@
 (def determine-api-actions
   "Create a data structure that represents the actions that are needed to create
   the desired Auth0 environment based on the current one."
-  {:enter (fn [{:keys [auth0-token edn-config env-config] :as ctx}]
-            (assoc ctx :api-actions (api-action/determine-api-actions auth0-token edn-config env-config)))})
+  {:enter (fn [{:keys [auth0-token edn-config env-config entity-manipulation-config] :as ctx}]
+            (assoc ctx :api-actions (api-action/determine-api-actions auth0-token edn-config env-config entity-manipulation-config)))})
 
 (def confirm-api-actions
   "When `:interactive?` is true, confirm `api-actions` with user, giving them a chance to abort."

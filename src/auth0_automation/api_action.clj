@@ -53,10 +53,11 @@
 
 (defn find-auth0-entity
   "Loads all entities and attempts to locate the the first where `search-key` is `value`"
-  [{:keys [token domain]} {:keys [search-key search-value entity-type]}]
+  [{:keys [token domain entity-manipulation-config]} {:keys [search-key search-value entity-type]}]
   (let [auth0-entities (auth0/get-entities {:domain domain
                                             :type   entity-type
-                                            :token  token})]
+                                            :token  token
+                                            :entity-manipulation-config entity-manipulation-config})]
     (->> auth0-entities
          (filter #(= search-value (search-key %)))
          first)))
@@ -107,12 +108,13 @@
   `edn-config` is a vector of hash-maps that represent desired entities to create for the Auth0
   environment. This vector is processed sequentially to decide what to do for each.
   See `determine-api-action` for more details."
-  [token edn-config env-config]
+  [token edn-config env-config entity-manipulation-config]
   (:api-actions
    (reduce (fn [acc edn-config-entry]
              (update acc :api-actions conj (determine-api-action acc edn-config-entry)))
            {:token       token
             :domain      (get-in env-config [:auth0 :domain])
+            :entity-manipulation-config entity-manipulation-config
             :api-actions []}
            edn-config)))
 

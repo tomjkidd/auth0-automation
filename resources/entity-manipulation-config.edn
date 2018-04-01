@@ -12,27 +12,56 @@
      sensible defaults, but allowing others to include more if needed with ease."
 
  :client
- {:id-key :client-id
+ {:id-key            :client-id
+  :search-key        :name
   :dissoc-for-create [:tenant :client-id :callback-url-template :global :owners :config-route]
   :dissoc-for-update [:tenant :client-id :callback-url-template :global :owners :config-route
                       [:jwt-configuration :secret-encoded]]}
 
  :resource-server
- {:id-key :id
+ {:id-key            :id
+  :search-key        :name
   :dissoc-for-create [:id]
   :dissoc-for-update [:id :identifier]}
 
  :connection
- {:id-key :id
+ {:id-key                   :id
+  :search-key               :name
+  ;; NOTE: These are not used in code to do anything meaningful yet, but serve to identify known
+  ;; ref-deps to assist creating an edn-config
   :referential-dependencies [{:dependency-entity-type :client
                               ;; Used to isolate the entity after creation
                               :search-key             :name
                               ;; Used to identify the payload field that must be updated
                               :dependency-key         :enabled-clients}]
-  :dissoc-for-create [:id]
-  :dissoc-for-update [:id :name :strategy]}
+  :dissoc-for-create        [:id]
+  :dissoc-for-update        [:id :name :strategy]}
 
  :rule
- {:id-key :id
+ {:id-key            :id
+  :search-key        :name
   :dissoc-for-create [:id]
-  :dissoc-for-update [:id :stage]}}
+  :dissoc-for-update [:id :stage]}
+
+ :email-template
+ {:id-key     :template
+  :search-key :template
+  :dissoc-for-create [:url-lifetime-in-seconds :result-url]
+  :dissoc-for-update [:url-lifetime-in-seconds :result-url]
+  :get-entities
+  {:strategy       :fixed-list
+   :doc            ":email-templates are not normal, there is not endpoint to access all email-templates at once.
+They are also restricted to being a fixed list.
+This can be addressed by enumerating all of the expected ids and collecting them with an api GET for each one.
+When a template doesn't exist, it returns a json payload with a :status-code 404 and :error-code
+'inexistent_email_template'. These should be filtered out!"
+   :ids            ["verify_email"
+                    "reset_email"
+                    "welcome_email"
+                    "blocked_account"
+                    "stolen_credentials"
+                    "enrollment_email"
+                    "change_password"
+                    "password_reset"
+                    "mfa_oob_code"]
+   :filter-out-404 true}}}
