@@ -1,5 +1,7 @@
 (ns auth0-automation.auth0
   (:require [auth0-automation.util :as util]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clj-http.client :as client]))
 
 (defmulti api-endpoint
@@ -79,25 +81,50 @@
           util/deserialize
           :access-token))))
 
-(defn get-entities
-  "Perform an Auth API get for all entities of `type`, using `token` for authz"
-  [{:keys [domain type token]}]
-  (util/http-get (build-url domain type) token))
-
 (defn get-entity
   "Perform an Auth API get for the specific entity of `type` identified by `id`, using `token` for authz"
   [{:keys [domain type id token]}]
   (util/http-get (format "%s/%s" (build-url domain type) id) token))
 
+(defn get-entities-using-strategy
+  "Custom get-entities in order to support types like email-templates"
+  [{:keys [domain type token entity-manipulation-config]}]
+  (let [{:keys [strategy] :as ge} (get-in entity-manipulation-config [type :get-entities])]
+    (if-not strategy
+      (util/http-get (build-url domain type) token)
+      (case strategy
+        :fixed-list (let [{:keys [ids filter-out-404]} ge
+                          entities (mapv #(get-entity {:domain domain
+                                                       :type   type
+                                                       :id     %
+                                                       :token  token})
+                                         ids)]
+                      (if-not filter-out-404
+                        entities
+                        (into [] (filter #(not= 404 (:status-code %)) entities))))))))
+
+(defn get-entities
+  "Perform an Auth API get for all entities of `type`, using `token` for authz"
+  [{:keys [domain type token entity-manipulation-config] :as args}]
+  (if-not entity-manipulation-config
+    (util/http-get (build-url domain type) token)
+    (get-entities-using-strategy args)))
+
 (defn snapshot
   "Take a snapshot of the current existing Auth0 entities for each type in `types`.
 
   This is useful for creating an initial configuration"
-  [{:keys [domain types token]
+  [{:keys [domain types token entity-manipulation-config]
     :or   {types [:client :resource-server :connection :rule]}}]
-  (reduce (fn [acc entity-type]
-            (assoc acc entity-type (get-entities {:domain domain
-                                                  :type   entity-type
-                                                  :token  token})))
-          {}
-          types))
+  (reduce
+   (fn [acc entity-type]
+     (assoc acc entity-type (get-entities {:domain                     domain
+                                           :type                       entity-type
+                                           :token                      token
+                                           :entity-manipulation-config (or entity-manipulation-config
+                                                                           (-> "entity-manipulation-config.edn"
+                                                                               io/resource
+                                                                               slurp
+                                                                               edn/read-string))})))
+   {}
+   types))

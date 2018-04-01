@@ -5,6 +5,16 @@
             [clojure.java.io :as io]
             [clj-http.client :as client]))
 
+(defn dissoc-in
+  "Perform a dissoc into a nested structure, with the same semantics as assoc-in"
+  [m [k & ks]]
+  (if ks
+    (if-let [nextmap (get m k)]
+      (let [newmap (dissoc-in nextmap ks)]
+        (assoc m k newmap))
+      m)
+    (dissoc m k)))
+
 (defn serialize
   "Serialze `edn` into json"
   [edn]

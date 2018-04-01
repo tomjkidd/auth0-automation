@@ -40,7 +40,8 @@
 (defn tinker
   "Demonstrates api-action determination (relies on a private environment and config...)"
   []
-  (let [token (get-token)
-        edn-config (get-edn-config)
-        api-actions (api-action/determine-api-actions token edn-config env-config)]
-    (pp/pprint api-actions)))
+  (let [edn-config (get-edn-config)]
+    (core/run {:env-config   env-config
+               :edn-config   edn-config
+               :interactive? true
+               :exit?        false})))
