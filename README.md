@@ -26,7 +26,7 @@ adding more functionality to support the detection of and resolution of conflict
 This library utilizes the Maintenance API of Auth0, and doesn't surface anything for the Authentication API.
 All references to the Auth0 API in this repo should be assumed to mean the Maintenance API.
 
-## Usage
+## Conceptual Overview
 
 This program relies on a few environment variables in order to work, so you must set them to run correctly
 
@@ -37,15 +37,37 @@ This program relies on a few environment variables in order to work, so you must
 | `AUTH0_AUTOMATION_CLIENT_SECRET` | String | The secret that corresponds to `AUTH0_AUTOMATION_CLIENT_ID` |
 | `AUTH0_AUTOMATION_EDN_CONFIG_FILEPATH` | String | The location to look for the `edn-config` to use, more about that below |
 
-An `edn-config` file contains a vector of hash-maps that represent the state of the Auth0 enviornment you are
-trying to setup.
 
-Each hash-map in edn-config has `:type`, `:id-key`, `:search-key`, and `:payload` keys.
+## edn-config
+
+An `edn-config` file contains a vector of `edn-config-entry` hash-maps, and represents the sequential series of
+steps that are needed to create an Auth0 environment.
+
+### edn-config-entry types
+
+There are two types of `edn-config-entry`, `:entity` and `:referential-dependency`
+
+An `:entity` edn-config-entry is used to create or update an auth0 entity, setting most of it's parameters in
+a simple fashion.
+
+A `:referential-dependency` edn-config-entry is used to associate one Auth0 entity with a homogeneous list of
+other Auth0 entities. These entries will only work if they follow the entity entries in the edn-config so that
+the entities exist, so it is best to put all of the `:entity` entries first, followed by all of the
+`:referential-dependency` entries.
+
+For these relationships, using an `:entity` would be possible if you could control the id, but not all Auth0
+entities allow an admin to configure the ids. Because of this, a different key, usually a `name`, is used to
+reference entities.
+
+#### :entity edn-config-entry
+
+Each `:entity` hash-map in edn-config has the following keys and values:
 
 | Key | Type | Description |
 |:----|:----:|:------------|
-| :type | Keyword | One of `#{:client :resource-server :connection :user}` |
-| :id-key | Keyword | Maps to the Auth0 generated id of an entity. This key is used to collect information to report to the user after the program runs to allow the user to verify updated entities. (These ids are typically used in other programs to connect to specific entities. |
+| :type | Keyword | The value `:entity` is used to identify the edn-config-entry type |
+| :entity-type | Keyword | The auth0 entity type. Effort was made to not have to code out all types, so see the source code for more details. One of `#{:client :resource-server :connection :user :rule}` are common values. |
+| :id-key | Keyword | Maps to the Auth0 generated id of an entity. This key is used to collect information to report to the user after the program runs to allow the user to verify updated entities. (These ids are typically used in other programs to connect to specific entities.) |
 | :search-key | Keyword | Represents the edn based identifier used to detect existing entities. It is used by the program to determine if an entity already exists. Because `:id-key` is not controlled by programmers, this provides a stable way to identify an entity.|
 | :payload | edn | An edn data structure that will be transformed to a json payload to use as the body for either a POST/PUT to create/update an entity. |
 
@@ -60,13 +82,39 @@ a grain of salt.
 NOTE: kebab-case keywords are used for `payload`, and will be converted to snake_case strings
 ```
 
+#### :referential-dependency edn-config-entry
+
+Each `:referential-dependency` hash-map in edn-config has the following keys and values:
+
+| Key | Type | Description |
+|:----|:----:|:------------|
+| :type | Keyword | The value `:referential-dependency` is used to identify the edn-config-entry type |
+| :entity-type | Keyword | The auth0 entity type that has a referential-dependency |
+| :dependency-value | List of strings | A list of search-key values used to find entities. At runtime, entities are found and then `:id-key` is used to set the proper id values that Auth0 expects |
+| :dependency-entity-type | Keyword | The Auth0 entity type for each element in `dependency-value` |
+| :dependency-key | Keyword | The field id for the entity whose value is a list of ids to another entity type |
+| :id-key | Keyword | Maps to the Auth0 generated id of an entity. This key is used to access each dependency in order to properly set values |
+| :search-key | Keyword | Represents the key to use to uniquely identify an entity |
+| :search-value | String| Represents the value to use to uniquely identify an entity |
+
+```
+NOTE: `:referential-dependency` nodes need to occur sequentially AFTER the entities they refer to. This was
+intentionally done to make it easier to talk about the relationships you want to establish, without having to
+create logic to analyze these desires implicitly.
+```
+
+## Progam Summary
+
 This program will first consume the `edn-config`, get an Auth0 access-token, and sequentially process the
 edn-config using calls to the Auth0 API to determine if entities exists, or if it needs to create them. The
-program will create an intermediate data-structure, `api-actions` based on this information to communicate
-the steps necessary to get from the current state to the desired state. Finally, api-actions is then consumed
+referential-dependencies are then used to update connections between entities that rely on other entities. The
+program will create an intermediate data-structure, `api-actions`, based on this information to communicate
+the steps necessary to get from the current state to the desired state. Finally, `api-actions` are then consumed
 to actually perform the the changes. The program captures the ids of the entities that it created and provides
 them as edn output in order to allow the user to verify the work via the dashboard and/or to use the results
 downstream to programmatically ensure other parts of the system are configured correctly.
+
+## Usage
 
 Run the project directly:
 
