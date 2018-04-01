@@ -30,7 +30,7 @@ This library determines actions to perform, and then attempts them. It is able t
 but if errors occur during the transact phase there is no rollback strategy. Take a snapshot of the environment
 in case you have to do any recovery!
 
-## Progam Summary
+## Program Summary
 
 This program will first read in a config file called `edn-config`, get an Auth0 access-token, and sequentially
 process each `edn-config-entry` to create a corresponding `api-action`. This vector of `api-actions` is an
