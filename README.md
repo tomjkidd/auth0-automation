@@ -26,7 +26,22 @@ adding more functionality to support the detection of and resolution of conflict
 This library utilizes the Maintenance API of Auth0, and doesn't surface anything for the Authentication API.
 All references to the Auth0 API in this repo should be assumed to mean the Maintenance API.
 
-## Conceptual Overview
+This library determines actions to perform, and then attempts them. It is able to detect exceptions and errors,
+but if errors occur during the transact phase there is no rollback strategy. Take a snapshot of the environment
+in case you have to do any recovery!
+
+## Progam Summary
+
+This program will first read in a config file called `edn-config`, get an Auth0 access-token, and sequentially
+process each `edn-config-entry` to create a corresponding `api-action`. This vector of `api-actions` is an
+intermediate data-structure that contains the complete information necessary to get from the current Auth0
+environment state to the desired one. In interactive mode, you can use this step to verify what will occur in a
+readable format. Finally, `api-actions` are consumed to actually perform the changes. The output is captured,
+and contains the ids of the entities involved, as well as other information, as edn. This allows the user to
+verify the work via the Auth0 Dashboard, and/or to use the results downstream to programatically ensure other
+parts of the system are configured correctly.
+
+## Concepts and Details
 
 This program relies on a few environment variables in order to work, so you must set them to run correctly
 
@@ -103,16 +118,20 @@ intentionally done to make it easier to talk about the relationships you want to
 create logic to analyze these desires implicitly.
 ```
 
-## Progam Summary
+## api-actions
 
-This program will first consume the `edn-config`, get an Auth0 access-token, and sequentially process the
-edn-config using calls to the Auth0 API to determine if entities exists, or if it needs to create them. The
-referential-dependencies are then used to update connections between entities that rely on other entities. The
-program will create an intermediate data-structure, `api-actions`, based on this information to communicate
-the steps necessary to get from the current state to the desired state. Finally, `api-actions` are then consumed
-to actually perform the the changes. The program captures the ids of the entities that it created and provides
-them as edn output in order to allow the user to verify the work via the dashboard and/or to use the results
-downstream to programmatically ensure other parts of the system are configured correctly.
+Each `edn-config-entry` is processed and turned into an `api-action`.
+
+`:entity` entries will generate calls to the Auth0 API to determine if entities exists, or if it needs to create
+them. This information is passed through to the `api-action`. The `api-actions` created from these entries contain all of the information needed to create or update an entity. In the case of create this will determine the whole
+payload to use, while an update will only patch the diff necessary to establish the target configuration. In the
+case where there are no differences, noop api-actions are created.
+
+`:referential-dependency` entries don't make any calls, and are assumed to refer to entities that either will be
+created, or already exist. The static data is passed through to the `api-action` in order to do lookups and
+perform API requests at runtime.
+
+These `api-actions` are then sequentially consumed to transact information to Auth0.
 
 ## Usage
 
