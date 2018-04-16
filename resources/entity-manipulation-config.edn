@@ -64,4 +64,10 @@ When a template doesn't exist, it returns a json payload with a :status-code 404
                     "change_password"
                     "password_reset"
                     "mfa_oob_code"]
-   :filter-out-404 true}}}
+   :filter-out-404 true}}
+
+ :client-grant
+ {:id-key :id
+  :search-key [:client-id :audience]
+  :dissoc-for-create [:id :client-name :resource-server-name]
+  :dissoc-for-update [:id :client-name :resource-server-name :client-id :audience]}}

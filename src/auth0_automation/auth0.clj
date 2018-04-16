@@ -128,3 +128,8 @@
                                                                                edn/read-string))})))
    {}
    types))
+
+(defn delete-entity
+  "Delete an entity, based on its type and id"
+  [{:keys [domain type id token]}]
+  (util/http-delete (format "%s/%s" (build-url domain type) id) token))

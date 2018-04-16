@@ -130,7 +130,8 @@
     :create (when error (set/rename-keys api-response {:message :msg}))
     :update (when error (set/rename-keys api-response {:message :msg}))
     :noop nil
-    :ref-dep (when error (set/rename-keys api-response {:message :msg}))))
+    :ref-dep (when error (set/rename-keys api-response {:message :msg}))
+    :client-grant-create (when error (set/rename-keys api-response {:message :msg}))))
 
 (defn get-api-action-transact-errors
   "Detects and collects any errors that occurred while transacting `api-actions`, based on `api-responses`."
@@ -244,13 +245,14 @@
 
 (defn run
   "Run the Auth0 environment update, report results, and exit."
-  [{:keys [exit?] :as opts
+  [{:keys [exit? report-results?] :as opts
     :or {exit? true}}]
   (let [result (run-pipeline opts)
         ;; NOTE: This is done outside of the pipeline in order to analyze the ctx
         ;; to determine what happened (which would get skipped for errors as part of it)
         output (determine-output result)]
-    (report-results output)
+    (when report-results?
+      (report-results output))
     (if exit?
       (System/exit (determine-exit-code result))
       output)))

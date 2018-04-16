@@ -57,6 +57,12 @@
   [url body token]
   (http-helper client/patch {:url url :body body :token token}))
 
+(defn http-delete
+  "Perform an HTTP delete at `url`, with `body`, using `token` for authz.
+  Assumes a json response, and converts it to kebab-case key edn"
+  [url token]
+  (http-helper client/delete {:url url :token token}))
+
 (defn load-edn-config
   "Use the `env-config` to locate the `edn-config` filepath, and read it in"
   [env-config]
