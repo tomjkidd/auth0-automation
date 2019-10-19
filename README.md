@@ -2,6 +2,15 @@
 
 A data driven way to manage an Auth0 tenant via configuration files
 
+# DEPRECATION NOTICE
+
+At the time this repo was created, [auth0-deploy-cli][1] wasn't as feature rich as it currently is.
+That repo is maintained by auth0 directly, with more or less the same goal as this project, and since
+we have been able to adopt and rely on that tool instead, this repo will no longer be undergoing any
+maintenance.
+
+[1]: https://github.com/auth0/auth0-deploy-cli
+
 # Beta Warning
 
 This is in development currently, and the readme is being updated with what should happen, not yet all of
